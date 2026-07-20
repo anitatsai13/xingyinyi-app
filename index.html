@@ -296,6 +296,10 @@ function pickPool(){
   return (TAB==='form'?FORM:YIN).filter(x=>vf(x)&&lf(x)&&cf(x));
 }
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+/* 注音相似度：同音(不同字)最高、同音不同調次之，再比聲母/韻母共用 → 誘答挑易混淆的讀音 */
+function toneless(s){return (s||'').replace(/[ˊˇˋ˙]/g,'');}
+function simYin(a,b){if(!a||!b)return 0;if(a===b)return 6;var ta=toneless(a),tb=toneless(b);if(ta===tb)return 5;var i=0;while(i<ta.length&&i<tb.length&&ta[i]===tb[i])i++;var j=0;while(j+i<ta.length&&j+i<tb.length&&ta[ta.length-1-j]===tb[tb.length-1-j])j++;return i+j+(ta[0]===tb[0]?0.5:0);}
+function simYinPick(ans,all,n){var cand=[...new Set(all)].filter(y=>y&&y!==ans);var scored=cand.map(y=>({y:y,s:simYin(ans,y)})).sort((a,b)=>b.s-a.s);var top=scored.slice(0,Math.max(n+3,7)).map(o=>o.y);return shuffle(top).slice(0,n);}
 function hprompt(s,mode){ // 橫式：'blank' 詞例挖空底線 ; 'mark' 「」標紅
   s=esc(s).replace(/([〔［][^〕］]*[〕］])/g,'<span class="pos">$1</span>');
   if(mode==='blank')s=s.replace(/（\s*　?\s*）/g,'<span class="hblank">＿</span>');
@@ -304,7 +308,7 @@ function hprompt(s,mode){ // 橫式：'blank' 詞例挖空底線 ; 'mark' 「」
 }
 function makeQ(it){
   if(TAB==='form')return {kind:'form',it,ans:it.ans,opts:shuffle(it.opts)};
-  const ds=shuffle([...ALLYIN].filter(y=>y!==it.yin)).slice(0,3);
+  const ds=simYinPick(it.yin,ALLYIN,3);
   return {kind:'yin',it,ans:it.yin,opts:shuffle([it.yin,...ds])};
 }
 function startRound(){
