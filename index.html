@@ -321,7 +321,7 @@ function guideTable(c){
   const notes=[];
   const hlw=(w,ch)=>esc(w).split(esc(ch)).join(`<span class="hl">${esc(ch)}</span>`);
   const words=(ws,ch)=>ws.map(w=>{let s=hlw(w[0],ch);if(w[1]){notes.push([w[0],w[1]]);s+=`<span class="fn">${notes.length}</span>`;}return s;}).join('、');
-  const chCell=(t,rs)=>`<td class="ch"${rs>1?` rowspan="${rs}"`:''}>${t.st?'<span class="st">★</span>':''}${esc(t.ch)}</td>`;
+  const chCell=(t,rs)=>`<td class="ch"${rs>1?` rowspan="${rs}"`:''}>${esc(t.ch)}</td>`;
   let h='<div class="card gcard"><table class="gtbl">';
   if(c.name==='形近字'){
     h+='<thead><tr><th>號</th><th>形</th><th>音</th><th>詞語</th></tr></thead>';
