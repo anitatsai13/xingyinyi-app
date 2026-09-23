@@ -78,6 +78,7 @@ h2.les small{color:var(--sub);font-weight:400;font-size:12px}
 .gtbl .yn .zsym{font-size:15px}.gtbl .yn .zt{font-size:14px}
 .gtbl .mn{color:#5a5347;width:32%}
 .gtbl .hl{color:var(--hl);font-weight:800}
+.gtbl tbody.grp+tbody.grp tr:first-child td{border-top:4px solid var(--brand2)}
 .gtbl .gtip td{background:#fbf4e3;font-size:14.5px;color:#6b5a3a}
 .fn{display:inline-flex;align-items:center;justify-content:center;min-width:1.3em;height:1.3em;border-radius:999px;background:#3b3833;color:#fff;font:700 10.5px/1 system-ui,sans-serif;margin:0 3px 0 2px;padding:0 3px;vertical-align:.18em}
 .gnotes{font-size:15px;color:#5a5347;background:#f3efe6;border-radius:10px;padding:8px 12px;margin-top:8px;line-height:1.75}
@@ -323,8 +324,8 @@ function guideTable(c){
   const chCell=(t,rs)=>`<td class="ch"${rs>1?` rowspan="${rs}"`:''}>${t.st?'<span class="st">★</span>':''}${esc(t.ch)}</td>`;
   let h='<div class="card gcard"><table class="gtbl">';
   if(c.name==='形近字'){
-    h+='<tr><th>號</th><th>形</th><th>音</th><th>詞語</th></tr>';
-    G.forEach(g=>{const t=g.tbl,n=t.c.length;
+    h+='<thead><tr><th>號</th><th>形</th><th>音</th><th>詞語</th></tr></thead>';
+    G.forEach(g=>{const t=g.tbl,n=t.c.length;h+='<tbody class="grp">';
       t.c.forEach((x,i)=>{
         h+='<tr>';
         if(i===0)h+=`<td class="no" rowspan="${n}">${t.no}.</td>`;
@@ -333,21 +334,24 @@ function guideTable(c){
         h+=`<td class="wd">${words(x.w,x.ch)}</td></tr>`;
       });
       if(t.tip)h+=`<tr class="gtip"><td colspan="4">💡 記憶TIP：${esc(t.tip)}</td></tr>`;
+      h+='</tbody>';
     });
   }else if(c.name==='一字多音'){
-    h+='<tr><th>形</th><th>音</th><th>釋義</th><th>詞語</th></tr>';
-    G.forEach(g=>{const t=g.tbl,n=t.r.reduce((a,r)=>a+r.s.length,0);let first=true;
+    h+='<thead><tr><th>形</th><th>音</th><th>釋義</th><th>詞語</th></tr></thead>';
+    G.forEach(g=>{const t=g.tbl,n=t.r.reduce((a,r)=>a+r.s.length,0);let first=true;h+='<tbody class="grp">';
       t.r.forEach(r=>r.s.forEach((s,si)=>{
         h+='<tr>';
         if(first){h+=chCell(t,n);first=false;}
         if(si===0)h+=`<td class="yn"${r.s.length>1?` rowspan="${r.s.length}"`:''}>${vzhuyin(r.y)}</td>`;
         h+=`<td class="mn">${esc(s.m)}</td><td class="wd">${words(s.w,t.ch)}</td></tr>`;
       }));
+      h+='</tbody>';
     });
   }else if(c.name==='一字多義'){
-    h+='<tr><th>形</th><th>釋義</th><th>詞語</th></tr>';
-    G.forEach(g=>{const t=g.tbl;
+    h+='<thead><tr><th>形</th><th>釋義</th><th>詞語</th></tr></thead>';
+    G.forEach(g=>{const t=g.tbl;h+='<tbody class="grp">';
       t.s.forEach((s,si)=>{h+='<tr>';if(si===0)h+=chCell(t,t.s.length);h+=`<td class="mn">${esc(s.m)}</td><td class="wd">${words(s.w,t.ch)}</td></tr>`;});
+      h+='</tbody>';
     });
   }else return '';
   h+='</table>';
