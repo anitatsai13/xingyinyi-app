@@ -63,6 +63,7 @@ h2.les small{color:var(--sub);font-weight:400;font-size:12px}
   font-family:var(--kai);font-size:16.5px;line-height:1.55;color:#4a463e;letter-spacing:1px;
   height:max-content;align-self:flex-start}
 .vline.note{color:var(--sub);font-size:19px;letter-spacing:0}
+.vline.note .nhead{visibility:hidden;font-size:16.5px;letter-spacing:1px}
 .vline .hl{color:var(--hl);font-weight:800;font-size:1.12em}
 .vline .pos{color:var(--gold);font-size:.82em}
 .vline .yin{color:var(--yinsoft);font-size:.82em}
@@ -220,8 +221,8 @@ function fillCat(){catSel.innerHTML=['ALL','形近字','一字多義','一字多
 function curVols(){return DATA.filter(v=>(VOL==='ALL'||v.vol===VOL)&&(LES==='ALL'||v.id===LES));}
 
 /* 釋義切欄：首欄(連詞性/編號)≤約13字，續欄≤13字；優先標點斷、不切在「」內 */
-function splitRest(s){
-  const cells=[9,13,13,13,13];const out=[];let str=s,idx=0;
+function splitRest(s,cells=[9,13,13,13,13]){
+  const out=[];let str=s,idx=0;
   while(str.length>0){
     const cap=cells[Math.min(idx,cells.length-1)];
     if(str.length<=cap+1){out.push(str);break;}
@@ -229,6 +230,7 @@ function splitRest(s){
     for(let k=Math.min(cap+2,str.length);k>=Math.max(cap-2,1);k--){if(/[。、；，！？：]/.test(str[k-1])){bp=k;break;}}
     const head=str.slice(0,bp);
     if((head.split('「').length-1)>(head.split('」').length-1)){const nx=str.indexOf('」',bp);if(nx>=0)bp=nx+1;}
+    while(bp<str.length&&/[ㄅ-ㄩˊˇˋ˙]/.test(str[bp])&&/[ㄅ-ㄩˊˇˋ˙]/.test(str[bp-1]))bp++;   // 不把一組注音(含聲調)切到兩欄
     out.push(str.slice(0,bp));str=str.slice(bp);idx++;
   }
   return out;
@@ -256,7 +258,12 @@ function entryCol(e){
     if(isLabel(txt)){h+=`<div class="vline" style="color:var(--gold);font-weight:700">${decorate(txt)}</div>`;curPos="";curYin="";return;}
     txt=txt.replace(/（本課）|\(本課\)/g,'').trim();   // 本課已用紅字標示，內文不再顯示
     if(!txt)return;
-    if(ln.indexOf('※')===0){h+=`<div class="vline note">${decorate(txt)}</div>`;return;}
+    if(ln.indexOf('※')===0){
+      // ※註解：前面放與釋義行等寬的隱形佔位→與左邊釋義齊頭；太長切成多欄，續欄同樣齊頭
+      const nh=`<span class="nhead">${isPoly&&curYin?`<span class="yin">${esc(curYin)}</span>`:""}${curPos?decorate(curPos):"　　　"}　</span>`;
+      splitRest(txt,[10]).forEach(c=>{h+=`<div class="vline note">${nh}${decorate(c)}</div>`;});
+      return;
+    }
     let yinTok="",posTok="",num="",rest=txt;
     if(isPoly){const ym=rest.match(/^([˙ㄅ-ㄯˊˇˋ]+)\s*/);if(ym){yinTok=ym[1];rest=rest.slice(ym[0].length);curYin=yinTok;}}
     const pm=rest.match(/^([〔［][^〕］]*[〕］])\s*/);
