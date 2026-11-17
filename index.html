@@ -502,8 +502,26 @@ function startRound(){
   QSEQ=shuffle(pool); if(QLEN>0)QSEQ=QSEQ.slice(0,QLEN);
   QI=0;qStat={n:0,ok:0};ROUND=null;showQ();
 }
-function showQ(){ if(QI>=QSEQ.length){renderDone();return;} Q=makeQ(QSEQ[QI]);renderQ(); }
-function lenBar(){return `<div class="qlen">題數　`+[['10','10 題'],['20','20 題'],['0','全部']].map(p=>`<button class="lenbtn ${String(QLEN)===p[0]?'on':''}" data-len="${p[0]}">${p[1]}</button>`).join('')+`</div>`;}
+function showQ(){ if(QI>=QSEQ.length){renderDone();return;} if(WRT)TAB=WRT[QI].tab; Q=makeQ(QSEQ[QI]);renderQ(); }
+/* ---------- 錯題本「只練錯題」：每筆錯題對回原題，用當初的題型重測（同一題只出一次） ---------- */
+let WRT=null;
+function wResolve(r){
+  if(r.tab==='form'){const c=FORM.filter(x=>x.clause===r.prompt&&x.ans===r.correct);return c.find(x=>x.les===r.les)||c[0]||null;}
+  if(r.tab==='kao'){const c=KAO.filter(x=>String(x.q).replace(/<br>/g,' ')===r.prompt);return c.find(x=>x.les===r.les)||c[0]||null;}
+  const m=/^「(.+)」念？$/.exec(r.prompt||'');if(!m)return null;
+  const c=YIN.filter(x=>x.char===m[1]&&x.yin===r.correct),c2=c.filter(x=>x.les===r.les),arr=c2.length?c2:c;
+  return arr.length?arr[Math.floor(Math.random()*arr.length)]:null;
+}
+function wRetestList(){const seen=new Set(),list=[];let miss=0;
+  loadM().forEach(r=>{const k=wKey(r);if(seen.has(k))return;seen.add(k);const it=wResolve(r);if(it)list.push({tab:r.tab,it});else miss++;});
+  list.miss=miss;return list;}
+function wRetest(){
+  const list=wRetestList();if(!list.length){alert('錯題本裡沒有可重測的題目');return;}
+  WRT=shuffle(list);QSEQ=WRT.map(x=>x.it);QI=0;qStat={n:0,ok:0};ROUND=null;window.scrollTo(0,0);showQ();
+}
+function wRetestEnd(){WRT=null;TAB='wrong';render();}
+window.wRetest=wRetest;window.wRetestEnd=wRetestEnd;
+function lenBar(){if(WRT)return `<div class="qlen">🔁 只練錯題（${WRT.length} 題，用當初的題型）　<button class="lenbtn" onclick="wRetestEnd()">← 回錯題本</button></div>`;return `<div class="qlen">題數　`+[['10','10 題'],['20','20 題'],['0','全部']].map(p=>`<button class="lenbtn ${String(QLEN)===p[0]?'on':''}" data-len="${p[0]}">${p[1]}</button>`).join('')+`</div>`;}
 function bindLen(){document.querySelectorAll('.lenbtn').forEach(b=>b.onclick=()=>{QLEN=parseInt(b.dataset.len);startRound();});}
 function renderQ(){
   const it=Q.it;let stage,hint,opts;
@@ -558,8 +576,8 @@ function renderDone(){
     <div style="font-size:42px;margin:6px">${pct>=80?'🎉':pct>=60?'👍':'💪'}</div>
     <div style="font-size:20px;color:var(--brand);font-weight:700">本回合完成！</div>
     <div style="font-size:17px;margin:10px 0">答對 <b style="color:var(--ok)">${qStat.ok}</b> ／ ${qStat.n} 題　·　正確率 <b>${pct}%</b></div>
-    <button class="next" id="again">再來一回 ↻</button></div>`;
-  $('#again').onclick=startRound;bindLen();
+    ${WRT?`<button class="next" id="again">${wRetestList().length?'再練一次錯題 ↻':'錯題都練完了 🎉'}</button> <button class="next" onclick="wRetestEnd()">回錯題本</button>`:`<button class="next" id="again">再來一回 ↻</button>`}</div>`;
+  $('#again').onclick=WRT?(()=>{if(wRetestList().length)wRetest();else wRetestEnd();}):startRound;bindLen();
 }
 
 /* ---------- 會員帳號 + 雲端同步 (Supabase REST) ---------- */
@@ -614,7 +632,7 @@ function loadM(){return loadMAll().filter(r=>!r.done);}
 function saveM(a){const ks=new Set(a.map(mkKey));saveMAll(a.concat(loadMAll().filter(r=>r.done&&!ks.has(mkKey(r)))));}
 function wRec(you,correct){const it=Q.it;return {round:ROUND,t:new Date().toISOString(),tab:TAB,les:it.les,cat:it.cat,
     prompt:(Q.kind==='kao'?String(it.q).replace(/<br>/g,' '):Q.kind==='form'?it.clause:('「'+it.char+'」念？')),correct:String(correct),you:String(you)};}
-const wKey=r=>[r.tab,r.les,r.prompt,r.correct].join('|');
+const wKey=r=>[r.tab,r.les,r.prompt,String(r.correct).replace(/^\([A-D]\)\s*/,'')].join('|');
 function logWrong(you,correct){if(!ROUND)ROUND='R'+Date.now();const rec=wRec(you,correct),k=wKey(rec),a=loadMAll();
   a.forEach(b=>{if(!b.done&&b.hits&&wKey(b)===k)b.hits=0;});a.push(rec);saveMAll(a);cloudMirror();}
 /* 錯題答對計數：同一題連續答對 W_NEED 次就移出錯題本；中途答錯會歸零重算 */
@@ -640,7 +658,8 @@ function renderWrong(){
     <button class="btn danger" onclick="clrM()">🗑 清空</button></div>`;
   if(!a.length){app.innerHTML=acct+tools+'<div class="empty">目前沒有錯題　🎉<br>測驗答錯時會自動記錄在這裡。</div>';bindImp();return;}
   const r={};a.forEach(x=>{(r[x.round]=r[x.round]||[]).push(x)});
-  let h=acct+tools+`<div class="empty" style="padding:6px 0 10px;font-size:14px">同一題連續答對 ${W_NEED} 次就自動移出錯題本（中途答錯會重新計算）</div>`;Object.keys(r).sort().reverse().forEach(k=>{const rs=r[k];const t=new Date(rs[0].t);
+  const RL=wRetestList();
+  let h=acct+tools+(RL.length?`<div style="text-align:center;margin:8px 0 4px"><button class="next" onclick="wRetest()">📝 只練錯題（${RL.length} 題，用當初的題型）</button></div>`:'')+(RL.miss?`<div class="empty" style="padding:0;font-size:13px">另有 ${RL.miss} 筆對不到現有題目，略過</div>`:'')+`<div class="empty" style="padding:6px 0 10px;font-size:14px">同一題連續答對 ${W_NEED} 次就自動移出錯題本（中途答錯會重新計算）</div>`;Object.keys(r).sort().reverse().forEach(k=>{const rs=r[k];const t=new Date(rs[0].t);
     const ts=`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
     h+=`<div class="mround"><h4>🕓 ${ts}　共 ${rs.length} 題　<span class="tag">${rs[0].tab==='form'?'形近字':rs[0].tab==='kao'?'會考題':'注音'}</span></h4>`;
     rs.forEach(x=>{h+=`<div class="mitem"><span class="tag">${x.les.split('　')[0]}</span>${esc(x.prompt)}<br>正解 <span class="right">${esc(x.correct)}</span>　你選 <span class="wrong">${esc(x.you)}</span>${x.hits?`　<b class="right">連續答對 ${x.hits}／${W_NEED}</b>`:''}</div>`;});
@@ -665,7 +684,7 @@ function render(){
   else if(TAB==='wrong')renderWrong();
   else{startRound();}
 }
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');TAB=t.dataset.t;window.scrollTo(0,0);render();});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{WRT=null;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');TAB=t.dataset.t;window.scrollTo(0,0);render();});
 buildPools();loadSession();render();
 if(CLOUD&&loggedIn())syncDown().then(()=>{if(TAB==='wrong')renderWrong();});
 </script>
